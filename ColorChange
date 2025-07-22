@@ -1,0 +1,92 @@
+#include <M5Core2.h>
+#include <WiFi.h>
+#include "secrets.h" //this is another file
+#include "ThingSpeak.h"
+
+char ssid[] = SECRET_SSID;   // your network SSID (name)       this will all be found in secrets.h!
+char pass[] = SECRET_PASS;   // your network password 
+int keyIndex = 0;
+WiFiClient client;
+
+unsigned long myChannelNumber = SECRET_CH_ID;
+const char * myWriteAPIKey = SECRET_WRITE_APIKEY;
+
+// Define colors (can add more)
+uint32_t colors[] = { RED, GREEN, BLUE, YELLOW, CYAN, MAGENTA, WHITE};
+int numColors = sizeof(colors) / sizeof(colors[0]);
+
+int currentIndex = 0;
+unsigned long lastChangeTime = 0;
+bool colorSent = false;
+
+void updateColor();               // Function declaration
+void sendColorToThingSpeak();     // Function declaration
+
+void setup() {
+  M5.begin();
+  Serial.begin(115200);
+  M5.Lcd.setTextSize(2);
+  M5.Lcd.setCursor(10, 10);
+  M5.Lcd.println("Connecting WiFi...");
+
+   WiFi.begin(ssid, pass);
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(5000);
+  }
+    Serial.println("\nConnected.");
+    M5.Lcd.println("WiFi connected.");
+
+    ThingSpeak.begin(client);
+    updateColor();  // Show the first color
+  }
+
+
+
+void loop(){
+  M5.update();
+ if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi disconnected. Reconnecting...");
+    WiFi.begin(ssid, pass);
+    delay(5000);
+    return;  // skip rest of loop until reconnected
+  }
+
+  // Cycle through colors with Button A
+  if (M5.BtnA.wasPressed()) {
+    currentIndex = (currentIndex + 1) % numColors;
+    updateColor();
+  }
+
+  // If on a color for more than 5 seconds, send to ThingSpeak
+  if (!colorSent && millis() - lastChangeTime > 5000) {
+    sendColorToThingSpeak();
+    colorSent = true;
+  }
+}
+
+ 
+
+
+void updateColor() {
+  uint32_t color = colors[currentIndex];
+  M5.Lcd.fillScreen(color);
+  M5.Lcd.setCursor(10, 10);
+  M5.Lcd.setTextColor(BLACK, color);  // Contrast
+  M5.Lcd.printf("Color: #%06X", color);
+  lastChangeTime = millis();
+  colorSent = false;
+}
+
+void sendColorToThingSpeak() {
+  uint32_t color = colors[currentIndex];
+  int x = ThingSpeak.writeField(myChannelNumber, 1, (long)color, myWriteAPIKey);
+
+  if (x == 200) {
+    Serial.print("Sent color to ThingSpeak: #");
+    Serial.println(color, HEX);
+  } else {
+    Serial.print("Failed to send. HTTP error code: ");
+    Serial.println(x);
+  }
+}
