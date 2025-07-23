@@ -1,0 +1,30 @@
+#include <M5Core2.h>  // M5Core2 library
+
+const int BUTTON_PIN = 33;
+bool lastButtonState = HIGH;
+bool screenToggled = false;
+
+void setup() {
+  M5.begin();  // Initialize M5Core2 (screen, touch, power, etc.)
+  pinMode(BUTTON_PIN, INPUT_PULLUP);  // Button with internal pull-up
+  M5.Lcd.fillScreen(BLACK);           // Initial screen color
+}
+
+void loop() {
+  bool buttonPressed = digitalRead(BUTTON_PIN) == LOW;
+
+  // Detect rising edge (button press event)
+  if (buttonPressed && lastButtonState == HIGH) {
+    screenToggled = !screenToggled;  // Toggle state
+
+    if (screenToggled) {
+      M5.Lcd.fillScreen(RED);   // Change to RED
+    } else {
+      M5.Lcd.fillScreen(BLUE);  // Change to BLUE
+    }
+
+    delay(250);  // Debounce
+  }
+
+  lastButtonState = !buttonPressed;
+}
